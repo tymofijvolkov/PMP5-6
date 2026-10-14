@@ -1,0 +1,114 @@
+import sys
+import requests
+import json
+import csv
+import os
+
+sys.stdout.reconfigure(encoding="utf-8")
+
+indicator = "NE.EXP.GNFS.ZS"
+year = "2015:2019"
+
+url = (
+    f"https://api.worldbank.org/v2/country/all/"
+    f"indicator/{indicator}?date={year}&format=json&per_page=2000"
+)
+
+response = requests.get(url)
+
+if response.status_code == 200:
+    print("Дані успішно отримано")
+    data = response.json()
+    data[1] = [item for item in data[1] if item["date"] in ("2015", "2019")]
+
+    with open(
+        "exports.json",
+        "w",
+        encoding="utf-8"
+    ) as file:
+        json.dump(
+            data,
+            file,
+            ensure_ascii=False,
+            indent=4
+        )
+    print("Створено файл exports.json")
+
+    csv_data = []
+    for item in data[1]:
+        if item["value"] is not None:
+            csv_data.append([
+                item["country"]["value"],
+                item["date"],
+                item["value"]
+            ])
+
+    with open(
+        "exports.csv",
+        "w",
+        newline="",
+        encoding="utf-8"
+    ) as file:
+        writer = csv.writer(file)
+        writer.writerow([
+            "Country",
+            "Year",
+            "Exports of goods and services (% of GDP)"
+        ])
+        writer.writerows(csv_data)
+
+    print("Створено файл exports.csv")
+
+    print("\nЗміст JSON:")
+    for item in data[1]:
+        print(json.dumps(
+            item,
+            ensure_ascii=False,
+            indent=4
+        ))
+        print()
+
+    print("Зміст CSV:")
+    print(
+        "Country, Year, Exports of goods and services (% of GDP)"
+    )
+    for row in csv_data:
+        print(
+            f"{row[0]}, {row[1]}, {row[2]}"
+        )
+else:
+    print(
+        "Помилка отримання даних:",
+        response.status_code
+    )
+
+flag = False
+
+try:
+    f = open("exports.csv", "r", encoding="utf-8")
+    r = csv.reader(f)
+    header = next(r)
+
+    c = input("\nВведіть назви країн через кому, щоб знайти показники: ")
+    while c.isdigit() or c.strip() == "":
+        c = input("Введіть значення ще раз, так як повинна бути назва країни: ")
+
+    names = [x.strip().lower() for x in c.split(",")]
+    os.system("cls")
+    print("Country, Year: Exports")
+
+    with open("new.csv", "w", newline="", encoding="utf-8") as f2:
+        w = csv.writer(f2)
+        w.writerow(header)
+        for row in r:
+            if row[0].lower() in names:
+                flag = True
+                print(row[0], row[1], ": ", row[2])
+                w.writerow(row)
+
+    f.close()
+    if flag == False:
+        os.system("cls")
+        print("Показників для введених країн (" + c + ") - немає.")
+except:
+    print("Файл exports.csv не знайдено")
